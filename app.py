@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import os
-
 from utils import (
     load_dataset_from_folder,
     basic_cleaning,
@@ -31,7 +30,7 @@ st.markdown(
     """
     <style>
     .stApp {
-        background-image: url("https://images.unsplash.com/photo-1501973801540-537f08ccae7f?auto=format&fit=crop&w=1470&q=80");
+        background-image: url("https://unsplash.com");
         background-size: cover;
         background-attachment: fixed;
     }
@@ -57,7 +56,7 @@ st.markdown(
     .fire-overlay {
         position: relative;
         height: 250px;
-        background: url('https://i.ibb.co/0jqHqvh/fire.gif') center center no-repeat;
+        background: url('https://ibb.co') center center no-repeat;
         background-size: cover;
         border-radius: 12px;
         margin-bottom: 20px;
@@ -114,7 +113,6 @@ st.sidebar.write(f"Regression target: {reg_target}")
 # ------------------------
 if mode == "EDA":
     st.header("Exploratory Data Analysis 🌳")
-
     if st.button("Show Feature Histograms"):
         st.markdown("### 📊 Feature Distributions")
         fig, ax = plt.subplots(len(features)//3 + 1, 3, figsize=(16, 5 * (len(features)//3 + 1)))
@@ -137,14 +135,13 @@ if mode == "EDA":
             sns.heatmap(corr, annot=True, fmt=".2f", cmap="YlOrRd", ax=ax)
             st.pyplot(fig)
         else:
-            st.warning("⚠️ Not enough numeric columns to compute correlation heatmap.")
+            st.warning("⚠ Not enough numeric columns to compute correlation heatmap.")
 
 # ------------------------
 # Training
 # ------------------------
 elif mode == "Train Model":
     st.header("Train Regression Model 🔥")
-
     try:
         X_scaled, scaler = preprocess_for_model(df, features)
         y = pd.to_numeric(df[reg_target], errors="coerce").dropna()
@@ -165,7 +162,7 @@ elif mode == "Train Model":
                 st.write(f"**{name}** — RMSE: {r['rmse']:.3f}, R²: {r['r2']:.3f}")
                 save_path = save_model(m, f"reg_{name}")
                 st.write(f"Saved model to `{save_path}`")
-
+                
                 if hasattr(m, "feature_importances_"):
                     st.subheader(f"Feature Importance — {name}")
                     fi = pd.DataFrame({
@@ -184,7 +181,6 @@ elif mode == "Train Model":
 # ------------------------
 elif mode == "Predict":
     st.header("Predict FWI 🔥")
-
     st.write("Enter feature values:")
 
     # Initialize input_vals
@@ -193,80 +189,78 @@ elif mode == "Predict":
     # Extreme risk autofill button
     if st.button("Set Extreme Fire Risk Values"):
         for f in features:
-            if "temp" in f.lower():
-                input_vals[f] = 50.0
-            elif "rh" in f.lower():
-                input_vals[f] = 5.0
-            elif "ws" in f.lower():
-                input_vals[f] = 50.0
-            elif "rain" in f.lower():
-                input_vals[f] = 0.0
-            else:
-                input_vals[f] = 100.0
+            if "temp" in f.lower(): input_vals[f] = 50.0
+            elif "rh" in f.lower(): input_vals[f] = 5.0
+            elif "ws" in f.lower(): input_vals[f] = 50.0
+            elif "rain" in f.lower(): input_vals[f] = 0.0
+            else: input_vals[f] = 100.0
 
     # Feature input form
     with st.form("predict_form"):
         cols = st.columns(3)
         for i, f in enumerate(features):
             input_vals[f] = cols[i % 3].number_input(f"{f}", value=input_vals[f], format="%.3f")
+        
         submit = st.form_submit_button("Predict 🔥")
 
-    if submit:
-        X_input = pd.DataFrame([input_vals])
+        if submit:
+            X_input = pd.DataFrame([input_vals])
 
-        # Scale input
-        if os.path.exists("models/scaler_reg.joblib"):
-            scaler = joblib.load("models/scaler_reg.joblib")
-            X_scaled = scaler.transform(X_input[features])
-        else:
-            X_scaled = (X_input[features] - X_input[features].mean()) / (X_input[features].std().replace({0:1}))
-            X_scaled = X_scaled.values
-
-        # Load regressor
-        regressor = None
-        if os.path.exists("models/reg_random_forest_reg.joblib"):
-            regressor = joblib.load("models/reg_random_forest_reg.joblib")
-        elif os.path.exists("models/reg_xgboost_reg.joblib"):
-            regressor = joblib.load("models/reg_xgboost_reg.joblib")
-
-        if regressor is None:
-            st.error("⚠️ Train a model first!")
-        else:
-            pred_val = float(regressor.predict(X_scaled)[0])
-
-            # Display animated burning FWI
-            st.subheader("🔥 Predicted Fire Weather Index (FWI)")
-            st.markdown(f"<div class='burning'>{round(pred_val,2)}</div>", unsafe_allow_html=True)
-
-            # Fire risk
-            if pred_val <= 5:
-                risk_level = "Low 🔵"
-                color = "blue"
-                desc = "Fire is unlikely under current conditions."
-            elif pred_val <= 12:
-                risk_level = "Moderate 🟡"
-                color = "yellow"
-                desc = "Some fire risk exists. Stay alert."
-            elif pred_val <= 20:
-                risk_level = "High 🟠"
-                color = "orange"
-                desc = "High fire danger. Take precautions."
+            # Scale input
+            if os.path.exists("models/scaler_reg.joblib"):
+                scaler = joblib.load("models/scaler_reg.joblib")
+                # CORRECTED LINE BELOW: Added .values to bypass scikit-learn feature name validation
+                X_scaled = scaler.transform(X_input[features].values)
             else:
-                risk_level = "Extreme 🔴"
-                color = "red"
-                desc = "Extreme fire danger! Very high risk."
+                X_scaled = (X_input[features] - X_input[features].mean()) / (X_input[features].std().replace({0:1}))
+                X_scaled = X_scaled.values
 
-            st.markdown(f"**Fire Risk Level:** {risk_level}")
-            st.markdown(f"**Description:** {desc}")
+            # Load regressor
+            regressor = None
+            if os.path.exists("models/reg_random_forest_reg.joblib"):
+                regressor = joblib.load("models/reg_random_forest_reg.joblib")
+            elif os.path.exists("models/reg_xgboost_reg.joblib"):
+                regressor = joblib.load("models/reg_xgboost_reg.joblib")
 
-            # Horizontal risk bar
-            fig, ax = plt.subplots(figsize=(6, 1))
-            ax.barh([0], pred_val, color=color, height=0.6)
-            ax.set_xlim(0, 30)
-            ax.set_yticks([])
-            ax.set_xlabel("FWI scale")
-            ax.set_title("Fire Risk Gauge")
-            st.pyplot(fig)
+            if regressor is None:
+                st.error("⚠ Train a model first!")
+            else:
+                # Use the scaled values for prediction
+                pred_val = float(regressor.predict(X_scaled)[0])
+
+                # Display animated burning FWI
+                st.subheader("🔥 Predicted Fire Weather Index (FWI)")
+                st.markdown(f"<div class='burning'>{round(pred_val,2)}</div>", unsafe_allow_html=True)
+
+                # Fire risk logic
+                if pred_val <= 5:
+                    risk_level = "Low 🔵"
+                    color = "blue"
+                    desc = "Fire is unlikely under current conditions."
+                elif pred_val <= 12:
+                    risk_level = "Moderate 🟡"
+                    color = "yellow"
+                    desc = "Some fire risk exists. Stay alert."
+                elif pred_val <= 20:
+                    risk_level = "High 🟠"
+                    color = "orange"
+                    desc = "High fire danger. Take precautions."
+                else:
+                    risk_level = "Extreme 🔴"
+                    color = "red"
+                    desc = "Extreme fire danger! Very high risk."
+
+                st.markdown(f"**Fire Risk Level:** {risk_level}")
+                st.markdown(f"**Description:** {desc}")
+
+                # Horizontal risk bar
+                fig, ax = plt.subplots(figsize=(6, 1))
+                ax.barh([0], pred_val, color=color, height=0.6)
+                ax.set_xlim(0, 30)
+                ax.set_yticks([])
+                ax.set_xlabel("FWI scale")
+                ax.set_title("Fire Risk Gauge")
+                st.pyplot(fig)
 
 st.sidebar.markdown("---")
 st.sidebar.write("Dataset: Algerian Forest Fires | Models: RandomForest, XGBoost")
